@@ -1,0 +1,62 @@
+---
+- name: Power DNS API Endpoint
+  hosts: localhost
+  gather_facts: False
+  vars_prompt:
+
+    - name: powerdns_ip
+      prompt: Enter Power DNS IP Address (Ex:192.168.12.37) ?
+      private: False
+    
+    - name: domain_name
+      prompt: Enter Domain Name ?
+      private: False
+
+    - name: account
+      prompt: Enter Account Name ?
+      private: False
+
+    - name: domain_type
+      prompt: |
+       Enter Domain Type ?
+       ( Native, Master, Slave, Producer, Consumer )
+      default: Native
+      private: False   
+      
+  vars: 
+    api_url: "http://{{ powerdns_ip }}:8081/api/v1/servers"
+    api_key: <apikeysecret>  
+
+  tasks:
+   
+    - name: Create new domain
+      ansible.builtin.uri:
+        url: "{{ api_url }}/localhost/zones"
+        method: POST
+        body_format: json
+        force_basic_auth: true
+        force: true
+        headers:
+          X-API-Key: "{{ api_key }}"
+          Content-Type: "application/json"
+        body:
+          name: "{{ domain_name }}."
+          kind: "{{ domain_type }}"
+          type: Zone
+          masters: []  
+          account: "{{ account }}"
+          soa_edit_api: "DEFAULT"
+
+      register: result
+      ignore_errors: Yes
+      failed_when: result.status != 201 or result.status != 200
+
+    - name: Check if domain already is exists
+      debug:
+        msg: "Domain already exists: {{ domain_name }}"
+      when: result.status == 409
+
+    - name: Check if domain creation is successful
+      debug:
+        msg: "Domain creation: {{ result.msg }}"
+      when: result.status == 201 or result.status == 200
